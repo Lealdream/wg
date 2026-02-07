@@ -20,10 +20,10 @@ if [ "$PRT" = "exit" ] || [ "$PRT" = "EXIT" ]
 then
 break
 fi
-sudo iptables -A FORWARD -i eth0 -o wg0 -p tcp --syn --dport $PRT -m conntrack --ctstate NEW -j ACCEPT
-sudo iptables -A FORWARD -i eth0 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A FORWARD -i wg0 -o eth0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport "$PRT" -j DNAT --to-destination 10.0.0.2
+sudo iptables -A FORWARD -i ens6 -o wg0 -p tcp --syn --dport $PRT -m conntrack --ctstate NEW -j ACCEPT
+sudo iptables -A FORWARD -i ens6 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A FORWARD -i wg0 -o ens6 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -t nat -A PREROUTING -i ens6 -p tcp --dport "$PRT" -j DNAT --to-destination 10.0.0.2
 sudo iptables -t nat -A POSTROUTING -o wg0 -p tcp --dport "$PRT" -d 10.0.0.2 -j SNAT --to-source 10.0.0.1
 sudo netfilter-persistent save
 echo
@@ -39,10 +39,10 @@ if [ "$PRT" = "exit" ] || [ "$PRT" = "EXIT" ]
 then
 break
 fi
-sudo iptables -A FORWARD -i eth0 -o wg0 -p udp --dport $PRT -m conntrack --ctstate NEW -j ACCEPT
-sudo iptables -A FORWARD -i eth0 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -A FORWARD -i wg0 -o eth0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-sudo iptables -t nat -A PREROUTING -i eth0 -p udp --dport "$PRT" -j DNAT --to-destination 10.0.0.2
+sudo iptables -A FORWARD -i ens6 -o wg0 -p udp --dport $PRT -m conntrack --ctstate NEW -j ACCEPT
+sudo iptables -A FORWARD -i ens6 -o wg0 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A FORWARD -i wg0 -o ens6 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -t nat -A PREROUTING -i ens6 -p udp --dport "$PRT" -j DNAT --to-destination 10.0.0.2
 sudo iptables -t nat -A POSTROUTING -o wg0 -p udp --dport "$PRT" -d 10.0.0.2 -j SNAT --to-source 10.0.0.1
 sudo netfilter-persistent save
 echo
@@ -75,8 +75,8 @@ cat << WG > /etc/wireguard/wg0.conf
 PrivateKey = $PRIVATEKEY
 Address = 10.0.0.1/24, fd86:ea04:1115::1/64
 ListenPort = 51820
-PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
-PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE; ip6tables -D FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -D POSTROUTING -o eth0 -j MASQUERADE
+PostUp = iptables -A FORWARD -i wg0 -j ACCEPT; iptables -t nat -A POSTROUTING -o ens6 -j MASQUERADE; ip6tables -A FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -A POSTROUTING -o ens6 -j MASQUERADE
+PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING -o ens6 -j MASQUERADE; ip6tables -D FORWARD -i wg0 -j ACCEPT; ip6tables -t nat -D POSTROUTING -o ens6 -j MASQUERADE
 SaveConfig = true
 WG
 
@@ -90,7 +90,7 @@ sed -i -e '/DEFAULT_FORWARD_POLICY/c DEFAULT_FORWARD_POLICY="ACCEPT" ' /etc/defa
 cat << fire >> /etc/ufw/before.rules
 *nat
 :POSTROUTING ACCEPT [0:0]
--A POSTROUTING -o eth0 -j MASQUERADE
+-A POSTROUTING -o ens6 -j MASQUERADE
 COMMIT
 fire
 sudo ufw --force enable
@@ -129,7 +129,7 @@ portfrd
 
 RANDOM=$(openssl rand -base64 32)
 7z a clientconfig.7z -p$RANDOM -mhe /client-config/.
-UPLOAD=$(curl -i -F name=c.7z -F file=@clientconfig.7z https://uguu.se/api.php?d=upload-tool)
+UPLOAD=$(curl -i -F name=c.7z -F file=@clientconfig.7z https://uguu.se/upload)
 cat << _UPLOAD_ > /upload.log
 $UPLOAD
 _UPLOAD_
